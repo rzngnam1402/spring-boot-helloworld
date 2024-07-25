@@ -1,0 +1,63 @@
+version: '3'
+services:
+  # Elasticsearch service
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    networks:
+      - elk
+
+  # Logstash service
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.0
+    container_name: logstash
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    networks:
+      - elk
+
+  # Kibana service
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    networks:
+      - elk
+
+  # Spring Boot application service
+  app:
+    build:
+      context: ./
+    container_name: spring-boot-app
+    ports:
+      - "8081:8081"
+    volumes:
+      - /var/log/spring-boot-app:/var/log/spring-boot-app
+    networks:
+      - elk
+    depends_on:
+      - logstash
+
+  # Filebeat service
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.0
+    container_name: filebeat
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - /var/log/spring-boot-app:/var/log/spring-boot-app
+    networks:
+      - elk
+    depends_on:
+      - logstash
+
+networks:
+  elk:
+    driver: bridge
